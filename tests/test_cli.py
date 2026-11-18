@@ -1,5 +1,35 @@
+import sys
+
+import pytest
+
+from monitor import cli
 from monitor.checker import SiteResult
 from monitor.cli import init_config, print_table
+
+
+@pytest.mark.parametrize("flag", ["--help", "--version"])
+def test_information_flags_exit_without_monitoring(flag, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["sentinel", flag])
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Information flags should exit before loading config or running checks")
+
+    monkeypatch.setattr(cli, "load_config", unexpected)
+    monkeypatch.setattr(cli, "run_all_checks", unexpected)
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 0
+    output = capsys.readouterr()
+    assert output.err == ""
+    if flag == "--version":
+        assert output.out == f"sentinel {cli.__version__}\n"
+    else:
+        assert "usage: sentinel" in output.out
+        assert "--config" in output.out
+        assert "--version" in output.out
 
 
 def test_init_creates_file(tmp_path, monkeypatch):
